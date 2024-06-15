@@ -7,6 +7,6 @@ Authors@R:
 Description: Use machine learning on nflfastR and nflreadR data to project subsequent-season fantasy footblal performance.
 License: `use_mit_license()`
 Encoding: UTF-8
-Imports: gsisdecoder, nflfastR, nflreadr, xgboost, parsnip, dials, tune, tidymodels, dplyr, tidyr
+Imports: gsisdecoder, nflfastR, nflreadr, xgboost, parsnip, dials, tune, tidymodels, dplyr, tidyr, magrittr
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.1

@@ -1,4 +1,5 @@
 `%notin%` = Negate(`%in%`)
+`%>%` = magrittr::`%>%`
 
 #' Pull weekly performance data using nflfastR
 #' @return a dataframe of weekly stats
