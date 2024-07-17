@@ -16,8 +16,8 @@ load_weekly = function(min_year, max_year) {
                                 c("player_id", "season", "week"))
     stats_sub = stats_sub %>%
       tidyr::drop_na(player_id, week) %>%
-      dplyr::mutate(across(where(is.character), ~ ifelse(is.na(.), "", .))) %>%
-      dplyr::mutate(across(where(is.numeric), ~ ifelse(is.na(.), Mode(.[!is.na(.)]), .)))
+      dplyr::mutate(across(where(is.character), ~ dplyr::if_else(is.na(.), "", .))) %>%
+      dplyr::mutate(across(where(is.numeric), ~ dplyr::if_else(is.na(.), Mode(.[!is.na(.)]), .)))
     stats_sub_summary = stats_sub %>%
       dplyr::filter(week >= 1, week <= 16) %>%
       dplyr::group_by(player_id, season) %>%
@@ -57,7 +57,7 @@ load_seasonal = function(min_year, max_year) {
   roster = nflfastR::fast_scraper_roster(min_year:max_year) %>%
     dplyr::filter(position == "WR") %>%
     dplyr::select(player_id = gsis_id) %>%
-    distinct(player_id)
+    dplyr::distinct(player_id)
   seasonal_stats_by_position = vector(mode = "list", length = length(pos_groups))
   i = 1
   for (pg in pos_groups) {
@@ -115,10 +115,12 @@ load_espn_qbr = function(min_year, max_year) {
                   pts_added_per_play = pts_added / qb_plays) %>%
     dplyr::rename(week = game_week) %>%
     dplyr::filter(week >= 1, week <= 16)
-  stat_cols = colnames(espn_qbr %>% ungroup() %>% select(where(is.numeric), -gsis_id, -season, -week))
+  stat_cols = colnames(espn_qbr %>%
+                         dplyr::ungroup() %>%
+                         dplyr::select(where(is.numeric), -gsis_id, -season, -week))
   espn_qbr_season_summary = create_seasonal_summary(espn_qbr %>%
-                                                      filter(!(week == "Season Total")) %>%
-                                                      mutate(week = as.numeric(week)), stat_cols)
+                                                      dplyr::filter(!(week == "Season Total")) %>%
+                                                      dplyr::mutate(week = as.numeric(week)), stat_cols)
   return(espn_qbr_season_summary)
 }
 
@@ -134,8 +136,8 @@ load_snap_counts = function() {
     dplyr::filter(week <= 16) # ignore weeks 17, 18, and postseason
   stat_cols = colnames(snap_counts %>%
                          dplyr::select(where(is.numeric) &
-                                         !contains("_id") &
-                                         !contains("defense"),
+                                         !dplyr::contains("_id") &
+                                         !dplyr::contains("defense"),
                                        -season, -week))
   seasonal_summary = create_seasonal_summary(snap_counts, stat_cols)
   return(seasonal_summary)
@@ -155,12 +157,12 @@ load_combine = function() {
       dplyr::filter(pos == pg) %>%
       dplyr::select_if(~ !all(is.na(.)))
     numeric_stat_cols = setdiff(colnames(combine_sub %>%
-                                           select(where(is.numeric))),
+                                           dplyr::select(where(is.numeric))),
                                 c("gsis_id", "season"))
     combine_sub = combine_sub %>%
       tidyr::drop_na(gsis_id, season) %>%
-      dplyr::mutate(across(where(is.character), ~ ifelse(is.na(.), "", .))) %>%
-      dplyr::mutate(across(where(is.numeric), ~ ifelse(is.na(.), Mode(.[!is.na(.)]), .))) %>%
+      dplyr::mutate(across(where(is.character), ~ dplyr::if_else(is.na(.), "", .))) %>%
+      dplyr::mutate(across(where(is.numeric), ~ dplyr::if_else(is.na(.), Mode(.[!is.na(.)]), .))) %>%
       dplyr::rename(player_id = gsis_id)
     combine_by_position[[i]] = combine_sub
     i = i + 1
@@ -192,8 +194,8 @@ load_next_gen_stats = function() {
       dplyr::filter(pos == pg) %>%
       dplyr::select_if(~ !all(is.na(.)))
     stat_cols = colnames(next_gen_sub %>%
-                           dplyr::select(where(is.numeric) & !contains("_id"),
-                                         -contains('season'), -contains('week')))
+                           dplyr::select(where(is.numeric) & !dplyr::contains("_id"),
+                                         -dplyr::contains('season'), -dplyr::contains('week')))
 
     next_gen_seasonal_summary = next_gen_sub %>%
       create_seasonal_summary(stat_cols)
@@ -211,7 +213,7 @@ load_next_gen_stats = function() {
 get_player_bios = function() {
   player_bios = nflreadr::load_ff_playerids()
   player_bios_sub = player_bios %>%
-    drop_na(gsis_id) %>% # we need this ID to join to existing data... seems to mean we lose all rookies
-    select(-contains("_id"), gsis_id, -any_of("twitter_username"))
+    tidyr::drop_na(gsis_id) %>% # we need this ID to join to existing data... seems to mean we lose all rookies
+    dplyr::select(-contains("_id"), gsis_id, -dplyr::any_of("twitter_username"))
   return(player_bios_sub)
 }

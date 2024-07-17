@@ -27,7 +27,7 @@ join_player_bios = function(dfs) {
   for (i in 1:max_i) {
     dfs[[i]] = dfs[[i]] %>%
       dplyr::inner_join(player_bios, by = c('player_id' = 'gsis_id'), suffix = c('', 'IGNORE')) %>%
-      dplyr::select(-ends_with("IGNORE")) %>%
+      dplyr::select(-dplyr::ends_with("IGNORE")) %>%
       adjust_age()
   }
   return(dfs)

@@ -5,8 +5,8 @@
 #' impute_blank_zero(df)
 impute_blank_zero = function(df) {
   df_new = df %>%
-    dplyr::mutate(dplyr::across(where(is.numeric), ~replace_na(., 0))) %>%
-    dplyr::mutate(dplyr::across(where(is.character), ~replace_na(., "MISSING")))
+    dplyr::mutate(dplyr::across(where(is.numeric), ~tidyr::replace_na(., 0))) %>%
+    dplyr::mutate(dplyr::across(where(is.character), ~tidyr::replace_na(., "MISSING")))
   return(df_new)
 }
 

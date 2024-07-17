@@ -43,12 +43,12 @@ find_id = function(df, id_type = "pfr_id") {
   roster = nflreadr::load_rosters()
   roster_sub = roster %>%
     dplyr::filter(depth_chart_position %in% c("QB", "RB", "WR", "TE")) %>%
-    dplyr::mutate(draft_club = replace_na(draft_club, "UNDRAFTED")) #,
-           #draft_number = replace_na(draft_number, max(draft_number, na.rm = TRUE) + 1))
+    dplyr::mutate(draft_club = tidyr::replace_na(draft_club, "UNDRAFTED"),
+           draft_number = tidyr::replace_na(draft_number, max(draft_number, na.rm = TRUE) + 1))
   id_lookup = roster_sub %>%
     dplyr::select(gsis_id, all_of(id_type)) %>%
-    dplyr::distinct(gsis_id, !!sym(id_type), .keep_all = TRUE) %>%
-    tidyr::drop_na(gsis_id, !!sym(id_type))
+    dplyr::distinct(gsis_id, !!rlang::sym(id_type), .keep_all = TRUE) %>%
+    tidyr::drop_na(gsis_id, !!rlang::sym(id_type))
   df_new = df %>%
     dplyr::inner_join(id_lookup, by = c(id_type))
   return(df_new)
@@ -166,15 +166,6 @@ get_data = function(min_year, max_year) {
   data_te_latest = stats_latest_season[[4]] %>%
     eliminate_passing_stats()
 
-  data_qb_standardized_latest = data_qb_latest %>%
-    create_factors()
-  data_rb_standardized_latest = data_rb_latest %>%
-    create_factors()
-  data_wr_standardized_latest = data_wr_latest %>%
-    create_factors()
-  data_te_standardized_latest = data_te_latest %>%
-    create_factors()
-
   data_qb = stats_full[[1]] %>%
     eliminate_receiving_stats()
   data_rb = stats_full[[2]] %>%
@@ -184,17 +175,8 @@ get_data = function(min_year, max_year) {
   data_te = stats_full[[4]] %>%
     eliminate_passing_stats()
 
-  data_qb %>% write_csv("data_qb.csv")
-  data_rb %>% write_csv("data_rb.csv")
-  data_wr %>% write_csv("data_wr.csv")
-  data_te %>% write_csv("data_te.csv")
-
-  data_qb_standardized = data_qb %>%
-    create_factors()
-  data_rb_standardized = data_rb %>%
-    create_factors()
-  data_wr_standardized = data_wr %>%
-    create_factors()
-  data_te_standardized = data_te %>%
-    create_factors()
+  data_qb %>% readr::write_csv("data_qb.csv")
+  data_rb %>% readr::write_csv("data_rb.csv")
+  data_wr %>% readr::write_csv("data_wr.csv")
+  data_te %>% readr::write_csv("data_te.csv")
 }
