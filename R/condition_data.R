@@ -1,7 +1,3 @@
-`%notin%` = Negate(`%in%`)
-`%>%` = magrittr::`%>%`
-
-
 #' Append next-year fantasy points (PPR and regular) to existing table containing present-year info
 #' @param joined a dataframe. It can be the output of join_weekly_and_seasonal but just needs to include fantasy point and games data
 #' @return a dataframe with present- and next-year fantasy point and games stats
@@ -171,17 +167,13 @@ get_data = function(min_year, max_year) {
     eliminate_passing_stats()
 
   data_qb_standardized_latest = data_qb_latest %>%
-    create_factors() %>%
-    standardize_by_season(FALSE)
+    create_factors()
   data_rb_standardized_latest = data_rb_latest %>%
-    create_factors() %>%
-    standardize_by_season(FALSE)
+    create_factors()
   data_wr_standardized_latest = data_wr_latest %>%
-    create_factors() %>%
-    standardize_by_season(FALSE)
+    create_factors()
   data_te_standardized_latest = data_te_latest %>%
-    create_factors() %>%
-    standardize_by_season(FALSE)
+    create_factors()
 
   data_qb = stats_full[[1]] %>%
     eliminate_receiving_stats()
@@ -197,21 +189,12 @@ get_data = function(min_year, max_year) {
   data_wr %>% write_csv("data_wr.csv")
   data_te %>% write_csv("data_te.csv")
 
-  data_qb %>% saveRDS("data_qb.rds")
-  data_rb %>% saveRDS("data_rb.rds")
-  data_wr %>% saveRDS("data_wr.rds")
-  data_te %>% saveRDS("data_te.rds")
-
   data_qb_standardized = data_qb %>%
-    create_factors() %>%
-    standardize_by_season(TRUE)
+    create_factors()
   data_rb_standardized = data_rb %>%
-    create_factors() %>%
-    standardize_by_season(TRUE)
+    create_factors()
   data_wr_standardized = data_wr %>%
-    create_factors() %>%
-    standardize_by_season(TRUE)
+    create_factors()
   data_te_standardized = data_te %>%
-    create_factors() %>%
-    standardize_by_season(TRUE)
+    create_factors()
 }
