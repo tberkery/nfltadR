@@ -17,7 +17,7 @@ xgboost = function(model_name, category_num, position, data, response_variable, 
     penalty_L1 = tune(),
     penalty_L2 = tune()
   ) %>%
-    parsnip::set_engine("xgboost") %>%
+    parsnip::set_engine("xgboost", alpha = penalty_L1, lambda = penalty_L2) %>%
     parsnip::set_mode("classification")
 
   xgb_spec
