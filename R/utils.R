@@ -42,3 +42,13 @@ Mode = function(x) {
   ux = unique(x)
   ux[which.max(tabulate(match(x, ux)))]
 }
+
+add_NA_for_missing_cols = function(df1, df2) {
+  df1_cols = colnames(df1)
+  df2_cols = colnames(df2)
+  missing_cols = setdiff(df1_cols, df2_cols)
+  for (col in missing_cols) {
+    df2[[col]] = NA
+  }
+  return(df2)
+}

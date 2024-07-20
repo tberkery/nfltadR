@@ -175,8 +175,24 @@ get_data = function(min_year, max_year) {
   data_te = stats_full[[4]] %>%
     eliminate_passing_stats()
 
+  data_qb = data_qb %>%
+    rbind(add_NA_for_missing_cols(data_qb, data_qb_latest))
+  data_rb = data_rb %>%
+    rbind(add_NA_for_missing_cols(data_rb, data_rb_latest))
+  data_wr = data_wr %>%
+    rbind(add_NA_for_missing_cols(data_wr, data_wr_latest))
+  data_te = data_te %>%
+    rbind(add_NA_for_missing_cols(data_te, data_te_latest))
+
   data_qb %>% readr::write_csv("data_qb.csv")
   data_rb %>% readr::write_csv("data_rb.csv")
   data_wr %>% readr::write_csv("data_wr.csv")
   data_te %>% readr::write_csv("data_te.csv")
+
+  con = connect_write_db()
+
+  write_data(data_qb, "fantasy_football", "QB", con)
+  write_data(data_rb, "fantasy_football", "RB", con)
+  write_data(data_wr, "fantasy_football", "WR", con)
+  write_data(data_te, "fantasy_football", "TE", con)
 }
