@@ -184,11 +184,6 @@ get_data = function(min_year, max_year) {
   data_te = data_te %>%
     rbind(add_NA_for_missing_cols(data_te, data_te_latest))
 
-  data_qb %>% readr::write_csv("data_qb.csv")
-  data_rb %>% readr::write_csv("data_rb.csv")
-  data_wr %>% readr::write_csv("data_wr.csv")
-  data_te %>% readr::write_csv("data_te.csv")
-
   con = connect_write_db()
 
   write_data(data_qb, "fantasy_football", "QB", con)
