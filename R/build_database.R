@@ -79,11 +79,13 @@ write_data = function(df, db_name, table_name, con) {
   DBI::dbExecute(con, create_table_sql)
 
   # Year to update
-  update_year = unique(df$season)
+  update_years = unique(df$season)
 
   # Delete existing rows with the same year
-  delete_sql = glue::glue_sql("DELETE FROM {`table_name`} WHERE season = {update_year}", .con = con)
-  DBI::dbExecute(con, delete_sql)
+  for (update_year in update_years) {
+    delete_sql = glue::glue_sql("DELETE FROM {`table_name`} WHERE season = {update_year}", .con = con)
+    DBI::dbExecute(con, delete_sql)
+  }
 
   # Insert new data
   DBI::dbWriteTable(con, table_name, df, append = TRUE, row.names = FALSE)

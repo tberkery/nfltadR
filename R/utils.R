@@ -52,3 +52,17 @@ add_NA_for_missing_cols = function(df1, df2) {
   }
   return(df2)
 }
+
+create_model_directory = function(model_name, position, response_variable, category_num) {
+  # Construct the directory path
+  dir_path = file.path(".", "models", paste0(model_name, "_", position, "_", response_variable, "_", category_num))
+
+  # Check if the directory exists
+  if (!dir.exists(dir_path)) {
+    # Create the directory and any necessary parent directories
+    dir.create(dir_path, recursive = TRUE)
+    message("Directory created: ", dir_path)
+  } else {
+    message("Directory already exists: ", dir_path)
+  }
+}
