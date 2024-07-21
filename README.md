@@ -15,6 +15,24 @@ If you don't have `mysql` installed locally, you will need to install it. If you
 
 Once you have your user configured, create a database titled `fantasy_football` which you will write to using this package. This will contain the draft board and data that the package curates after its key functions are run.
 
+Note that interaction with the database from a Mac typically requires a configuration file. I like using the `.my.cnf` file in this regard. Create a `.my.cnf` file in the root of your computer (not the root of the project directory) if you don't already have one. It should look something like this:
+
+```{}
+[client]
+user = [your username from earlier]
+password = [your password from earlier]
+host = localhost
+local_infile = 1
+
+[mysql]
+local_infile = 1
+
+[mysqld]
+local_infile = 1
+```
+
+Note that `localhost` implies that the database is hosted locally (rather than, e.g., in the cloud). Also note the persistent inclusion of `local_infile = 1`... this is pivotal for ensuring that you can actually write to the database programatically from the code in the package. If you don't have this, you will run into issues.
+
 ## Restrictions
 
 * Note that `nflfastR` data only goes back to 2006. Accordingly, 2006 is the earliest `min_year` value you can select and still have working functions.
