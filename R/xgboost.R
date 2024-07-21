@@ -1,5 +1,3 @@
-# Inspiration from which this notebook is modeled: https://juliasilge.com/blog/xgboost-tune-volleyball/
-
 get_data_by_position_and_year = function(db_name, pos) {
   con = connect_read_db()
   data = DBI::dbGetQuery(con, glue::glue_sql("SELECT * FROM {`db_name`}.{`pos`}", .con = con))
@@ -7,28 +5,19 @@ get_data_by_position_and_year = function(db_name, pos) {
   return(data)
 }
 
-run_projections = function(db_name = "fantasy_football") {
-  for (scoring_system in c("ppg_next_year", "ppg_ppr_next_year")) {
-    for (pos in c("QB", "RB", "WR", "TE")) {
-      data = get_data_by_position_and_year(db_name, pos)
-      features = data %>%
-        dplyr::ungroup() %>%
-        dplyr::select(starts_with("mean_"))
-      xgboost("standard", 1, pos, data, scoring_system, features, 5, 15)
-    }
-  }
-}
-
+# Inspiration from which this notebook is modeled: https://juliasilge.com/blog/xgboost-tune-volleyball/
 xgboost = function(model_name, category_num, position, data, response_variable,
                    features, num_cv_folds = 5, grid_size = 15) {
+
+  futile.logger::flog.info(glue::glue("Working on XGBoost {model_name} model for {position} and {response_variable} (process #{category_num})"))
 
   create_model_directory(model_name, position, response_variable, category_num)
 
   data = data %>%
     tidyr::drop_na(!!rlang::sym(response_variable)) %>% # do not remove response variable (which assuming it involves a next-year stat will be NA for some database entries)
-    dplyr::mutate(dplyr::across(where(is.double), ~as.numeric(.))) %>% # convert database double objects to numeric
-    # dplyr::select(where(~ all(!is.na(.)))) # remove columns with all NA values
+    dplyr::mutate(dplyr::across(where(is.double), ~as.numeric(.))) # convert database double objects to numeric
 
+  futile.logger::flog.info(glue::glue("The model will be trained on {nrow(data)} rows of data."))
   features = data %>%
     dplyr::ungroup() %>%
     dplyr::select(starts_with("mean_")) %>%
@@ -149,6 +138,7 @@ xgboost = function(model_name, category_num, position, data, response_variable,
   DBI::dbDisconnect(con)
   preds_2024 = predict(final_xgb_fit, new_data = df_2024)
   df_2024$proj = preds_2024$.pred
+  player_bios = get_player_bios()
   df_2024 = df_2024 %>%
     dplyr::inner_join(player_bios, by = c('player_id' = 'gsis_id'),
                       suffix = c("", "_DUPLICATIVE")) %>%

@@ -67,24 +67,35 @@ write_data = function(df, db_name, table_name, con) {
   # Get data types
   data_types = get_data_types(df)
 
+  create_table_sql = ""
   # Generate SQL to create table if it does not exist
-  create_table_sql = paste(
-    glue::glue_sql("CREATE TABLE IF NOT EXISTS {`table_name`}", .con = con), "(",
-    paste(paste(names(df), data_types), collapse = ", "),
-    ", PRIMARY KEY (player_id, season)",
-    ");"
-  )
+  if ("scoring_system" %in% colnames(df)) {
+    create_table_sql = paste(
+      glue::glue_sql("CREATE TABLE IF NOT EXISTS {`table_name`}", .con = con), "(",
+      paste(paste(names(df), data_types), collapse = ", "),
+      ", PRIMARY KEY (player_id, season, scoring_system)",
+      ");"
+    )
+  } else {
+    create_table_sql = paste(
+      glue::glue_sql("CREATE TABLE IF NOT EXISTS {`table_name`}", .con = con), "(",
+      paste(paste(names(df), data_types), collapse = ", "),
+      ", PRIMARY KEY (player_id, season)",
+      ");"
+    )
+  }
 
   # Create table if it does not exist
   DBI::dbExecute(con, create_table_sql)
 
-  # Year to update
-  update_years = unique(df$season)
-
   # Delete existing rows with the same year
-  for (update_year in update_years) {
-    delete_sql = glue::glue_sql("DELETE FROM {`table_name`} WHERE season = {update_year}", .con = con)
-    DBI::dbExecute(con, delete_sql)
+  for (update_year in unique(df$season)) {
+    for (pos in unique(df$position)) {
+      for (ss in unique(df$scoring_system)) {
+        delete_sql = glue::glue_sql("DELETE FROM {`table_name`} WHERE season = {update_year} AND position = {pos} AND scoring_system = {ss}", .con = con)
+        DBI::dbExecute(con, delete_sql)
+      }
+    }
   }
 
   # Insert new data
