@@ -7,7 +7,7 @@ get_data_by_position_and_year = function(db_name, pos) {
 
 # Inspiration from which this notebook is modeled: https://juliasilge.com/blog/xgboost-tune-volleyball/
 xgboost = function(model_name, category_num, position, data, response_variable,
-                   features, num_cv_folds = 5, grid_size = 15) {
+                   features, num_cv_folds = 5, grid_size = 10) {
 
   futile.logger::flog.info(glue::glue("Working on XGBoost {model_name} model for {position} and {response_variable} (process #{category_num})"))
 
@@ -17,12 +17,20 @@ xgboost = function(model_name, category_num, position, data, response_variable,
     tidyr::drop_na(!!rlang::sym(response_variable)) %>% # do not remove response variable (which assuming it involves a next-year stat will be NA for some database entries)
     dplyr::mutate(dplyr::across(where(is.double), ~as.numeric(.))) # convert database double objects to numeric
 
+  if (position == "QB") {
+    data = data %>%
+      dplyr::filter(season >= 2013)
+  } else if (position == "RB") {
+    data = data %>%
+      dplyr::filter(season >= 2013)
+  } else {
+    data = data %>%
+      dplyr::filter(season >= 2013)
+  }
+  
   futile.logger::flog.info(glue::glue("The model will be trained on {nrow(data)} rows of data."))
-  features = data %>%
-    dplyr::ungroup() %>%
-    dplyr::select(starts_with("mean_")) %>%
-    colnames()
-  df_split = rsample::group_initial_split(data, player_id)
+
+  df_split = rsample::group_initial_split(data, player_id, prop = 0.75)
   df_train = rsample::training(df_split)
   df_test = rsample::testing(df_split)
 
@@ -57,8 +65,10 @@ xgboost = function(model_name, category_num, position, data, response_variable,
   xgb_grid
 
   formula = as.formula(paste(response_variable, "~", paste(features, collapse = " + ")))
+  print(formula)
 
   recipe = recipes::recipe(formula, data = df_train) %>%
+    recipes::step_impute_mean(recipes::all_numeric_predictors()) %>%
     recipes::step_dummy(recipes::all_nominal(), -recipes::all_outcomes()) %>%
     recipes::step_zv(recipes::all_predictors()) %>%
     recipes::step_nzv(recipes::all_predictors()) %>%
@@ -124,7 +134,7 @@ xgboost = function(model_name, category_num, position, data, response_variable,
 
   var_imps = final_xgb_fit %>%
     workflows::extract_fit_parsnip() %>%
-    vip::vip(geom = "point")
+    vip::vip(geom = "point", num_features = 1000)
 
   ggplot2::ggsave(glue::glue("./models/{model_name}_{position}_{response_variable}_{category_num}/var_imps.png"))
 
@@ -134,7 +144,18 @@ xgboost = function(model_name, category_num, position, data, response_variable,
   futile.logger::flog.info(glue::glue("Test-set correlation: {cor(df_test$proj, as.vector(df_test[[response_variable]]))}"))
 
   con = connect_read_db()
-  df_2024 = DBI::dbGetQuery(con, glue::glue_sql("SELECT * FROM fantasy_football.{`position`} WHERE season = 2023", .con = con))
+  if (position == "WR-TE") {
+    df_2024_WR = DBI::dbGetQuery(con, glue::glue_sql("SELECT * FROM fantasy_football.WR WHERE season = 2023", .con = con))
+    df_2024_TE = DBI::dbGetQuery(con, glue::glue_sql("SELECT * FROM fantasy_football.TE WHERE season = 2023", .con = con))
+    common_cols = intersect(colnames(df_2024_WR), colnames(df_2024_TE))
+    df_2024_WR = df_2024_WR %>%
+      dplyr::select(dplyr::all_of(common_cols))
+    df_2024_TE = df_2024_TE %>%
+      dplyr::select(dplyr::all_of(common_cols))
+    df_2024 = rbind(df_2024_WR, df_2024_TE)
+  } else {
+    df_2024 = DBI::dbGetQuery(con, glue::glue_sql("SELECT * FROM fantasy_football.{`position`} WHERE season = 2023", .con = con))
+  }
   DBI::dbDisconnect(con)
   preds_2024 = predict(final_xgb_fit, new_data = df_2024)
   df_2024$proj = preds_2024$.pred
@@ -147,7 +168,8 @@ xgboost = function(model_name, category_num, position, data, response_variable,
     dplyr::select(player_id, name, position, season, team, headshot_url, age, nfl_age, proj) %>%
     dplyr::mutate(season = season + 1,
                   scoring_system = response_variable) %>%
-    dplyr::arrange(desc(proj))
+    dplyr::arrange(desc(proj)) %>%
+    dplyr::mutate(nfl_age = nfl_age + 1)
 
   con_write = connect_write_db()
   write_data(df_2024_board, "fantasy_football", "draft_board", con_write)

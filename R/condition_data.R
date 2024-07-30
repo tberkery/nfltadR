@@ -60,19 +60,27 @@ create_seasonal_summary = function(df, numeric_stat_cols) {
     df = df %>%
       dplyr::rename(player_id = gsis_id)
   }
-  df_new = df %>%
-    dplyr::mutate(logarithmic_week = log(week)) %>%
-    dplyr::group_by(player_id, season) %>%
-    dplyr::summarize(
-      dplyr::across(all_of(numeric_stat_cols), ~ mean(.x, na.rm = TRUE), .names = "mean_{.col}"),
-      dplyr::across(all_of(numeric_stat_cols), ~ sum(.x, na.rm = TRUE), .names = "sum_{.col}"),
-      dplyr::across(all_of(numeric_stat_cols), ~ weighted.mean(.x, w = logarithmic_week, na.rm = TRUE), .names = "wtd_mean_{.col}"),
-      dplyr::across(all_of(numeric_stat_cols), ~ sd(.x, na.rm = TRUE), .names = "sd_{.col}"),
-      dplyr::across(all_of(numeric_stat_cols), ~ median(.x, na.rm = TRUE), .names = "median_{.col}"),
-      dplyr::across(all_of(numeric_stat_cols), ~ quantile(.x, 0.2, na.rm = TRUE), .names = "p20_{.col}"),
-      dplyr::across(all_of(numeric_stat_cols), ~ quantile(.x, 0.8, na.rm = TRUE), .names = "p80_{.col}"),
-      .groups = "keep"
-    )
+  df = df 
+  seasons = setdiff(unique(df$season), seq(min(df$season), min(df$season) + 2, 1))
+  df_new = NULL
+  for (seas in seasons) {
+    futile.logger::flog.info(glue::glue("Working on summarizing metrics for {seas} season."))
+    df_sub = df %>%
+      dplyr::mutate(earliest_considered_season = seas - 2, # in effect 3 seasons back
+                    sqrt_week = (week + 17 * (season - earliest_considered_season)) ** 0.67) %>%
+      dplyr::mutate(consider = dplyr::if_else(season >= earliest_considered_season & season <= seas, 1, 0)) %>%
+      dplyr::filter(consider == 1) %>%
+      dplyr::ungroup() %>%
+      dplyr::select(-consider, -earliest_considered_season) %>%
+      dplyr::group_by(player_id, season) %>%
+      dplyr::summarize(
+        dplyr::across(dplyr::all_of(numeric_stat_cols), ~ mean(.x, na.rm = TRUE), .names = "mean_{.col}"),
+        dplyr::across(dplyr::all_of(numeric_stat_cols), ~ weighted.mean(.x, w = sqrt_week, na.rm = TRUE) - mean(.x, na.rm = TRUE), .names = "wtd_mean_{.col}"),
+        dplyr::across(dplyr::all_of(numeric_stat_cols), ~ sd(.x, na.rm = TRUE), .names = "sd_{.col}"),
+        .groups = "keep"
+      )
+    df_new = rbind(df_new, df_sub)
+  }
   return(df_new)
 }
 
@@ -118,7 +126,7 @@ get_data = function(min_year, max_year) {
   stats_latest_season = stats_latest_season %>%
     join_player_bios()
 
-  snap_counts = load_snap_counts()
+  snap_counts = load_snap_counts(min_year, max_year)
   combine = load_combine()
   next_gen = load_next_gen_stats()
   espn_qbr = load_espn_qbr(min_year, max_year)
@@ -142,8 +150,6 @@ get_data = function(min_year, max_year) {
   for (i in 1:length(stats_full)) {
     stats_full[[i]] = stats_full[[i]] %>%
       left_join_by_player_id_and_season(snap_counts) %>%
-      dplyr::select_if(~ !all(is.na(.))) %>%
-      impute_blank_median() %>%
       keep_x_eliminate_xy() %>%
       eliminate_irrelevant_stats()
   }
@@ -151,38 +157,48 @@ get_data = function(min_year, max_year) {
   for (i in 1:length(stats_latest_season)) {
     stats_latest_season[[i]] = stats_latest_season[[i]] %>%
       left_join_by_player_id_and_season(snap_counts) %>%
-      dplyr::select_if(~ !all(is.na(.))) %>%
-      impute_blank_median() %>%
       keep_x_eliminate_xy() %>%
       eliminate_irrelevant_stats()
   }
 
   data_qb_latest = stats_latest_season[[1]] %>%
-    eliminate_receiving_stats()
+    eliminate_receiving_stats() %>%
+    join_ff_opportunity_stats(min_year + 2, max_year)
   data_rb_latest = stats_latest_season[[2]] %>%
-    eliminate_passing_stats()
+    eliminate_passing_stats() %>%
+    join_ff_opportunity_stats(min_year + 2, max_year)
   data_wr_latest = stats_latest_season[[3]] %>%
-    eliminate_passing_stats()
+    eliminate_passing_stats() %>%
+    join_ff_opportunity_stats(min_year + 2, max_year)
   data_te_latest = stats_latest_season[[4]] %>%
-    eliminate_passing_stats()
+    eliminate_passing_stats() %>%
+    join_ff_opportunity_stats(min_year + 2, max_year)
 
   data_qb = stats_full[[1]] %>%
-    eliminate_receiving_stats()
+    eliminate_receiving_stats() %>%
+    join_ff_opportunity_stats(min_year + 2, max_year)
   data_rb = stats_full[[2]] %>%
-    eliminate_passing_stats()
+    eliminate_passing_stats() %>%
+    join_ff_opportunity_stats(min_year + 2, max_year)
   data_wr = stats_full[[3]] %>%
-    eliminate_passing_stats()
+    eliminate_passing_stats() %>%
+    join_ff_opportunity_stats(min_year + 2, max_year)
   data_te = stats_full[[4]] %>%
-    eliminate_passing_stats()
+    eliminate_passing_stats() %>%
+    join_ff_opportunity_stats(min_year + 2, max_year)
 
   data_qb = data_qb %>%
-    rbind(add_NA_for_missing_cols(data_qb, data_qb_latest))
+    rbind(add_NA_for_missing_cols(data_qb, data_qb_latest)) %>%
+    dplyr::select_if(~ !all(is.na(.)))
   data_rb = data_rb %>%
-    rbind(add_NA_for_missing_cols(data_rb, data_rb_latest))
+    rbind(add_NA_for_missing_cols(data_rb, data_rb_latest)) %>%
+    dplyr::select_if(~ !all(is.na(.)))
   data_wr = data_wr %>%
-    rbind(add_NA_for_missing_cols(data_wr, data_wr_latest))
+    rbind(add_NA_for_missing_cols(data_wr, data_wr_latest)) %>%
+    dplyr::select_if(~ !all(is.na(.)))
   data_te = data_te %>%
-    rbind(add_NA_for_missing_cols(data_te, data_te_latest))
+    rbind(add_NA_for_missing_cols(data_te, data_te_latest)) %>%
+    dplyr::select_if(~ !all(is.na(.)))
 
   con = connect_write_db()
 

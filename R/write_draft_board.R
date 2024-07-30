@@ -1,11 +1,183 @@
 run_projections = function(db_name = "fantasy_football") {
+  features_by_position <- list(
+    "QB" = c("mean_passing_tds", "wtd_mean_passing_tds", "mean_interceptions", "wtd_mean_interceptions", 
+             "mean_passing_air_yards", "wtd_mean_passing_air_yards", "mean_passing_yards_after_catch", 
+             "wtd_mean_passing_yards_after_catch", "mean_passing_first_downs", "wtd_mean_passing_first_downs", 
+             "mean_dakota", "wtd_mean_dakota", "mean_carries", "wtd_mean_carries", "mean_rushing_yards", 
+             "wtd_mean_rushing_yards", "mean_rushing_tds", "wtd_mean_rushing_tds", "mean_rushing_fumbles", 
+             "wtd_mean_rushing_fumbles", "mean_rushing_first_downs", "wtd_mean_rushing_first_downs", 
+             "mean_rushing_epa", "wtd_mean_rushing_epa", "nfl_age", "mean_avg_time_to_throw", 
+             "wtd_mean_avg_time_to_throw", "mean_aggressiveness", "wtd_mean_aggressiveness", 
+             "mean_max_completed_air_distance", "wtd_mean_max_completed_air_distance", "mean_avg_air_yards_to_sticks", 
+             "wtd_mean_avg_air_yards_to_sticks", "mean_passer_rating", "wtd_mean_passer_rating", 
+             "mean_expected_completion_percentage", "wtd_mean_expected_completion_percentage", 
+             "mean_completion_percentage_above_expectation", "wtd_mean_completion_percentage_above_expectation", 
+             "mean_avg_air_distance", "wtd_mean_avg_air_distance", "mean_max_air_distance", "wtd_mean_max_air_distance", 
+             "mean_epa_per_play", "wtd_mean_epa_per_play", "mean_offense_pct", "wtd_mean_offense_pct", 
+             "mean_offense_snaps", "wtd_mean_offense_snaps", "draft_pick",
+             "mean_pass_completions_exp", 
+             "mean_pass_yards_gained_exp", 
+             "mean_rush_yards_gained_exp", "mean_pass_touchdown_exp", 
+             "mean_rush_touchdown_exp", 
+             "mean_pass_first_down_exp", 
+             "mean_rush_first_down_exp", 
+             "mean_pass_interception_exp", 
+             "mean_pass_fantasy_points_exp",
+             "mean_rush_fantasy_points_exp", "mean_total_yards_gained_exp", 
+             "mean_total_touchdown_exp", "mean_total_first_down_exp", 
+             "mean_total_fantasy_points_exp", "wtd_mean_pass_completions_exp", 
+             "wtd_mean_pass_yards_gained_exp", 
+             "wtd_mean_rush_yards_gained_exp", 
+             "wtd_mean_pass_touchdown_exp", 
+             "wtd_mean_rush_touchdown_exp", "wtd_mean_pass_two_point_conv_exp", 
+             "wtd_mean_rush_two_point_conv_exp", 
+             "wtd_mean_pass_first_down_exp", 
+             "wtd_mean_rush_first_down_exp", "wtd_mean_pass_interception_exp", 
+             "wtd_mean_pass_fantasy_points_exp", 
+             "wtd_mean_rush_fantasy_points_exp", 
+             "wtd_mean_total_yards_gained_exp", "wtd_mean_total_touchdown_exp", 
+             "wtd_mean_total_first_down_exp", "wtd_mean_total_fantasy_points_exp", 
+             "mean_pass_completions_exp_team_pct", 
+             "mean_pass_yards_gained_exp_team_pct", 
+             "mean_rush_yards_gained_exp_team_pct", "mean_pass_touchdown_exp_team_pct", 
+             "mean_rush_touchdown_exp_team_pct", 
+             "mean_pass_two_point_conv_exp_team_pct", 
+             "mean_rush_two_point_conv_exp_team_pct", "mean_pass_first_down_exp_team_pct", 
+             "mean_rush_first_down_exp_team_pct", 
+             "mean_pass_interception_exp_team_pct", 
+             "mean_pass_fantasy_points_exp_team_pct", 
+             "mean_rush_fantasy_points_exp_team_pct", "mean_total_yards_gained_exp_team_pct", 
+             "mean_total_touchdown_exp_team_pct", "mean_total_first_down_exp_team_pct", 
+             "mean_total_fantasy_points_exp_team_pct", "wtd_mean_pass_completions_exp_team_pct", 
+             "wtd_mean_pass_yards_gained_exp_team_pct", 
+             "wtd_mean_rush_yards_gained_exp_team_pct", 
+             "wtd_mean_pass_touchdown_exp_team_pct", 
+             "wtd_mean_rush_touchdown_exp_team_pct", 
+             "wtd_mean_pass_first_down_exp_team_pct", 
+             "wtd_mean_rush_first_down_exp_team_pct", "wtd_mean_pass_interception_exp_team_pct", 
+             "wtd_mean_pass_fantasy_points_exp_team_pct", 
+             "wtd_mean_rush_fantasy_points_exp_team_pct", 
+             "wtd_mean_total_yards_gained_exp_team_pct", "wtd_mean_total_touchdown_exp_team_pct", 
+             "wtd_mean_total_first_down_exp_team_pct", "wtd_mean_total_fantasy_points_exp_team_pct"),
+    "RB" = c("mean_carries", "wtd_mean_carries", "mean_rushing_yards", "wtd_mean_rushing_yards", 
+             "mean_rushing_tds", "wtd_mean_rushing_tds", "mean_rushing_fumbles", "wtd_mean_rushing_fumbles", 
+             "mean_rushing_first_downs", "wtd_mean_rushing_first_downs", "mean_rushing_epa", 
+             "wtd_mean_rushing_epa", "mean_racr", "wtd_mean_racr", "mean_target_share", "wtd_mean_target_share", 
+             "mean_wopr", "wtd_mean_wopr", "nfl_age", "draft_pick", "mean_receiving_yards", "wtd_mean_receiving_yards", 
+             "mean_receiving_tds", "wtd_mean_receiving_tds", "mean_rushing_2pt_conversions", "wtd_mean_rushing_2pt_conversions", 
+             "mean_rush_yards_over_expected_per_att", 
+             "wtd_mean_rush_yards_over_expected_per_att", "mean_rush_pct_over_expected", "wtd_mean_rush_pct_over_expected", 
+             "mean_efficiency", "wtd_mean_efficiency", "mean_percent_attempts_gte_eight_defenders", 
+             "wtd_mean_percent_attempts_gte_eight_defenders", "mean_avg_time_to_los", "wtd_mean_avg_time_to_los", 
+             "mean_offense_pct", "wtd_mean_offense_pct", "mean_offense_snaps", "wtd_mean_offense_snaps",
+             "mean_receptions_exp", "mean_rec_yards_gained_exp", 
+             "mean_rush_yards_gained_exp", 
+             "mean_rec_touchdown_exp", "mean_rush_touchdown_exp", 
+             "mean_rec_first_down_exp", "mean_rush_first_down_exp", 
+             "mean_rec_fantasy_points_exp", 
+             "mean_rush_fantasy_points_exp", "mean_total_yards_gained_exp", 
+             "mean_total_touchdown_exp", "mean_total_first_down_exp", 
+             "mean_total_fantasy_points_exp", "wtd_mean_pass_completions_exp", 
+             "wtd_mean_receptions_exp", 
+             "wtd_mean_rec_yards_gained_exp", "wtd_mean_rush_yards_gained_exp", 
+             "wtd_mean_rec_touchdown_exp", 
+             "wtd_mean_rush_touchdown_exp", "wtd_mean_rec_first_down_exp", 
+             "wtd_mean_rush_first_down_exp", 
+             "wtd_mean_rec_fantasy_points_exp", "wtd_mean_rush_fantasy_points_exp", 
+             "wtd_mean_total_yards_gained_exp", "wtd_mean_total_touchdown_exp", 
+             "wtd_mean_total_first_down_exp", "wtd_mean_total_fantasy_points_exp", 
+             "mean_receptions_exp_team_pct", 
+             "mean_rec_yards_gained_exp_team_pct", 
+             "mean_rush_yards_gained_exp_team_pct", 
+             "mean_rec_touchdown_exp_team_pct", "mean_rush_touchdown_exp_team_pct", 
+             "mean_rec_first_down_exp_team_pct", "mean_rush_first_down_exp_team_pct", 
+             "mean_rec_interception_exp_team_pct", 
+             "mean_rec_fantasy_points_exp_team_pct", 
+             "mean_rush_fantasy_points_exp_team_pct", "mean_total_yards_gained_exp_team_pct", 
+             "mean_total_touchdown_exp_team_pct", "mean_total_first_down_exp_team_pct", 
+             "mean_total_fantasy_points_exp_team_pct", "wtd_mean_pass_completions_exp_team_pct", 
+             "wtd_mean_receptions_exp_team_pct", 
+             "wtd_mean_rec_yards_gained_exp_team_pct", "wtd_mean_rush_yards_gained_exp_team_pct", 
+             "wtd_mean_rec_touchdown_exp_team_pct", 
+             "wtd_mean_rush_touchdown_exp_team_pct",  "wtd_mean_rec_first_down_exp_team_pct", 
+             "wtd_mean_rush_first_down_exp_team_pct",
+             "wtd_mean_rec_fantasy_points_exp_team_pct", "wtd_mean_rush_fantasy_points_exp_team_pct", 
+             "wtd_mean_total_yards_gained_exp_team_pct", "wtd_mean_total_touchdown_exp_team_pct", 
+             "wtd_mean_total_first_down_exp_team_pct", "wtd_mean_total_fantasy_points_exp_team_pct"),
+    "WR-TE" = c("mean_rushing_yards", "wtd_mean_rushing_yards", "mean_rushing_tds", "wtd_mean_rushing_tds", 
+                "mean_rushing_fumbles", "wtd_mean_rushing_fumbles", "mean_rushing_first_downs", 
+                "wtd_mean_rushing_first_downs", "mean_receiving_yards", "wtd_mean_receiving_yards", 
+                "mean_receiving_tds", "wtd_mean_receiving_tds", "mean_receiving_fumbles", "wtd_mean_receiving_fumbles", 
+                "mean_receiving_air_yards", "wtd_mean_receiving_air_yards", "mean_receiving_yards_after_catch", 
+                "wtd_mean_receiving_yards_after_catch", "mean_receiving_first_downs", "wtd_mean_receiving_first_downs", 
+                "mean_receiving_epa", "wtd_mean_receiving_epa", "mean_target_share", "wtd_mean_target_share", 
+                "mean_racr", "wtd_mean_racr", "mean_wopr", "wtd_mean_wopr", "mean_air_yards_share", 
+                "wtd_mean_air_yards_share", "draft_pick", "nfl_age", "mean_avg_separation", 
+                "wtd_mean_avg_separation", "mean_avg_cushion", "wtd_mean_avg_cushion", "mean_avg_intended_air_yards", 
+                "wtd_mean_avg_intended_air_yards", "mean_percent_share_of_intended_air_yards", 
+                "wtd_mean_percent_share_of_intended_air_yards", "mean_catch_percentage", "wtd_mean_catch_percentage", 
+                "mean_avg_yac_above_expectation", "wtd_mean_avg_yac_above_expectation", "mean_offense_pct", 
+                "wtd_mean_offense_pct", "mean_offense_snaps", "wtd_mean_offense_snaps", "position",
+                "mean_receptions_exp", "mean_rec_yards_gained_exp", 
+                "mean_rush_yards_gained_exp", 
+                "mean_rec_touchdown_exp", "mean_rush_touchdown_exp", 
+                "mean_rec_first_down_exp", "mean_rush_first_down_exp", 
+                "mean_rec_fantasy_points_exp", 
+                "mean_rush_fantasy_points_exp", "mean_total_yards_gained_exp", 
+                "mean_total_touchdown_exp", "mean_total_first_down_exp", 
+                "mean_total_fantasy_points_exp", "wtd_mean_pass_completions_exp", 
+                "wtd_mean_receptions_exp", 
+                "wtd_mean_rec_yards_gained_exp", "wtd_mean_rush_yards_gained_exp", 
+                "wtd_mean_rec_touchdown_exp", 
+                "wtd_mean_rush_touchdown_exp", "wtd_mean_rec_first_down_exp", 
+                "wtd_mean_rush_first_down_exp", 
+                "wtd_mean_rec_fantasy_points_exp", "wtd_mean_rush_fantasy_points_exp", 
+                "wtd_mean_total_yards_gained_exp", "wtd_mean_total_touchdown_exp", 
+                "wtd_mean_total_first_down_exp", "wtd_mean_total_fantasy_points_exp", 
+                "mean_receptions_exp_team_pct", 
+                "mean_rec_yards_gained_exp_team_pct", 
+                "mean_rush_yards_gained_exp_team_pct", 
+                "mean_rec_touchdown_exp_team_pct", "mean_rush_touchdown_exp_team_pct", 
+                "mean_rec_first_down_exp_team_pct", "mean_rush_first_down_exp_team_pct", 
+                "mean_rec_interception_exp_team_pct", 
+                "mean_rec_fantasy_points_exp_team_pct", 
+                "mean_rush_fantasy_points_exp_team_pct", "mean_total_yards_gained_exp_team_pct", 
+                "mean_total_touchdown_exp_team_pct", "mean_total_first_down_exp_team_pct", 
+                "mean_total_fantasy_points_exp_team_pct", "wtd_mean_pass_completions_exp_team_pct", 
+                "wtd_mean_receptions_exp_team_pct", 
+                "wtd_mean_rec_yards_gained_exp_team_pct", "wtd_mean_rush_yards_gained_exp_team_pct", 
+                "wtd_mean_rec_touchdown_exp_team_pct", 
+                "wtd_mean_rush_touchdown_exp_team_pct",  "wtd_mean_rec_first_down_exp_team_pct", 
+                "wtd_mean_rush_first_down_exp_team_pct",
+                "wtd_mean_rec_fantasy_points_exp_team_pct", "wtd_mean_rush_fantasy_points_exp_team_pct", 
+                "wtd_mean_total_yards_gained_exp_team_pct", "wtd_mean_total_touchdown_exp_team_pct", 
+                "wtd_mean_total_first_down_exp_team_pct", "wtd_mean_total_fantasy_points_exp_team_pct")
+  )
+  
   for (scoring_system in c("ppg_next_year", "ppg_ppr_next_year")) {
-    for (pos in c("QB", "RB", "WR", "TE")) {
-      data = get_data_by_position_and_year(db_name, pos)
-      features = data %>%
-        dplyr::ungroup() %>%
-        dplyr::select(starts_with("mean_"))
-      xgboost("standard", 1, pos, data, scoring_system, features, 5, 15)
+    for (pos in c("QB", "RB", "WR-TE")) {
+      features = features_by_position[[pos]]
+      if (pos %in% c("QB", "RB", "WR", "TE")) {
+        data = get_data_by_position_and_year(db_name, pos)
+      } else if (pos == "WR-TE") {
+        data_wr = get_data_by_position_and_year(db_name, "WR")
+        data_te = get_data_by_position_and_year(db_name, "TE")
+        common_cols = intersect(colnames(data_wr), colnames(data_te))
+        data_wr = data_wr %>%
+          dplyr::select(dplyr::all_of(common_cols))
+        data_te = data_te %>%
+          dplyr::select(dplyr::all_of(common_cols))
+        data = rbind(data_wr, data_te)
+      }
+      num_cv_folds = NULL
+      if (pos == "QB") {
+        num_cv_folds = 5
+      } else if (pos == "RB") {
+        num_cv_folds = 5
+      } else {
+        num_cv_folds = 5
+      }
+      xgboost("standard", 1, pos, data, scoring_system, features, num_cv_folds, 15)
     }
   }
 }

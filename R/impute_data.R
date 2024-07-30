@@ -22,3 +22,11 @@ impute_blank_median = function(df) {
     dplyr::mutate(dplyr::across(where(is.character), ~tidyr::replace_na(., "MISSING")))
   return(df_new)
 }
+
+impute_blank_fifth_percentile = function(df) {
+  df_new = df %>%
+    dplyr::group_by(season) %>%
+    dplyr::mutate(dplyr::across(where(is.numeric), ~tidyr::replace_na(., round(quantile(., 0.05, na.rm = TRUE), digits = 0)))) %>%
+    dplyr::mutate(dplyr::across(where(is.character), ~tidyr::replace_na(., "MISSING")))
+  return(df_new)
+}

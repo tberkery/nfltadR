@@ -128,9 +128,9 @@ load_espn_qbr = function(min_year, max_year) {
 #' @return the seasonal summary dataframe for snap counts
 #' @examples
 #' load_snap_counts()
-load_snap_counts = function() {
+load_snap_counts = function(min_year, max_year) {
   # Snap counts handled identically for all QB/RB/WR/TE positions
-  snap_counts = nflreadr::load_snap_counts() %>%
+  snap_counts = nflreadr::load_snap_counts(min_year:max_year) %>%
     dplyr::rename(pfr_id = pfr_player_id) %>%
     find_id("pfr_id") %>%
     dplyr::filter(week <= 16) # ignore weeks 17, 18, and postseason
@@ -206,6 +206,62 @@ load_next_gen_stats = function() {
   return(next_gen_by_position)
 }
 
+join_ff_opportunity_stats = function(df, min_year, max_year) {
+  ff_opportunities = nflreadr::load_ff_opportunity(seasons = min_year:max_year)
+  numeric_stat_cols = setdiff(colnames(ff_opportunities %>% dplyr::select(where(is.numeric) & dplyr::contains("exp"))),
+                                c("player_id", "season", "week"))
+  ff_opportunities = ff_opportunities %>%
+    dplyr::ungroup() %>%
+    dplyr::select(player_id, season, week, dplyr::contains("exp")) %>%
+    tidyr::drop_na(player_id, season) %>%
+    dplyr::mutate(season = as.numeric(season),
+                  earliest_considered_season = season - 2,
+                  sqrt_week = (week + 17 * (season - earliest_considered_season)) ** 0.67) %>%
+    dplyr::group_by(player_id, season, week) %>% # condense stats for multi-position players
+    dplyr::mutate(across(where(is.numeric), ~sum(., na.rm = TRUE))) %>%
+    dplyr::group_by(player_id, season) %>%
+    dplyr::summarize(
+      dplyr::across(dplyr::all_of(numeric_stat_cols), ~ mean(.x, na.rm = TRUE), .names = "mean_{.col}"),
+      dplyr::across(dplyr::all_of(numeric_stat_cols), ~ weighted.mean(.x, w = sqrt_week, na.rm = TRUE) - mean(.x, na.rm = TRUE), .names = "wtd_mean_{.col}"),
+      dplyr::across(dplyr::all_of(numeric_stat_cols), ~ sd(.x, na.rm = TRUE), .names = "sd_{.col}"),
+      .groups = "keep"
+    )
+  
+  general_cols = ff_opportunities %>% 
+    dplyr::ungroup() %>% 
+    dplyr::select(contains("exp") & !ends_with("team")) %>%
+    colnames()
+  for (gen_col in general_cols) {
+    team_col = paste0(gen_col, "_team")
+    new_col = paste0(gen_col, "_team_pct")
+    if (team_col %in% colnames(ff_opportunities)) {
+      ff_opportunities = ff_opportunities %>%
+        dplyr::mutate(!!rlang::sym(new_col) := !!rlang::sym(gen_col) / !!rlang::sym(team_col)) %>%
+        dplyr::ungroup() %>%
+        dplyr::select(-!!team_col)
+    }
+  }
+  df = df %>%
+    dplyr::left_join(ff_opportunities, by = c("player_id", "season"))
+  return(df)
+}
+
+join_ff_rankings_stats = function(df, min_year, max_year) {
+  ff_rankings = nflreadr::load_ff_rankings(type = c("draft"))
+  gsis_and_fantasy_pros_ids = nflreadr::load_ff_playerids() %>%
+    dplyr::select(gsis_id, fantasypros_id) %>%
+    tidyr::drop_na(gsis_id, fantasypros_id)
+  ff_rankings = ff_rankings %>%
+    dplyr::inner_join(gsis_and_fantasy_pros_ids, by = c("id" = "gsis_id")) %>%
+    dplyr::filter(ecr_type == "ro") %>% # redraft league, overall rankings
+    dplyr::rename(player_id = id) %>%
+    dplyr::ungroup() %>%
+    dplyr::select(player_id, ecr, sd, best, worst) %>%
+  df = df %>%
+    dplyr::left_join(ff_rankings, by = c("player_id", "season"))
+  return(ff_rankings)
+}
+
 #' Get player bios from ff_playerids dictionary of nflreadr
 #' @return player bios table w/ gsis_id as only player ID
 #' @examples
@@ -217,3 +273,4 @@ get_player_bios = function() {
     dplyr::select(-contains("_id"), gsis_id, -dplyr::any_of("twitter_username"))
   return(player_bios_sub)
 }
+
