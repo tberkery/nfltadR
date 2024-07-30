@@ -5,7 +5,7 @@ A simple package for generating fantasy football projections using machine learn
 
 ## Installation
 
-To install this package, open an RSession (and make sure you have `devtools` installed). Make sure your working directory is the root of this project and run `devtools::install("nfltadR")`. From this point onwards, you should have access to the package through traditional R measures (e.g. `library(nfltadR)`). Note that there is `renv.lock` file in the project repository that provides information on all project dependencies. Run `renv::init()` to initialize a `renv` environment for your proejct and then use `renv::restore()` to install all necessary packages.
+To install this package, open an RSession (and make sure you have `devtools` installed). Make sure your working directory is the root of this project and run `devtools::install()`. From this point onwards, you should have access to the package through traditional R measures (e.g. `library(nfltadR)`). Note that there is `renv.lock` file in the project repository that provides information on all project dependencies. Run `renv::init()` to initialize a `renv` environment for your proejct and then use `renv::restore()` to install all necessary packages.
 
 Note that this package was developed using R4.2. The package should work with R4.3 as well, but any usage of this package with a version other than R4.2 runs the risk of unforeseen issues. I recommend using R4.2.
 
