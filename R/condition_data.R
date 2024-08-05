@@ -74,11 +74,24 @@ create_seasonal_summary = function(df, numeric_stat_cols) {
       dplyr::select(-consider, -earliest_considered_season) %>%
       dplyr::group_by(player_id, season) %>%
       dplyr::summarize(
-        dplyr::across(dplyr::all_of(numeric_stat_cols), ~ mean(.x, na.rm = TRUE), .names = "mean_{.col}"),
-        dplyr::across(dplyr::all_of(numeric_stat_cols), ~ weighted.mean(.x, w = sqrt_week, na.rm = TRUE) - mean(.x, na.rm = TRUE), .names = "wtd_mean_{.col}"),
-        dplyr::across(dplyr::all_of(numeric_stat_cols), ~ sd(.x, na.rm = TRUE), .names = "sd_{.col}"),
+        dplyr::across(dplyr::all_of(numeric_stat_cols), ~ mean(.x, na.rm = TRUE), .names = "mean_{.col}_l3"),
+        dplyr::across(dplyr::all_of(numeric_stat_cols), ~ weighted.mean(.x, w = sqrt_week, na.rm = TRUE) - mean(.x, na.rm = TRUE), .names = "wtd_mean_{.col}_l3"),
+        dplyr::across(dplyr::all_of(numeric_stat_cols), ~ sd(.x, na.rm = TRUE), .names = "sd_{.col}_l3"),
         .groups = "keep"
       )
+    df_sub_prior_season = df %>%
+      dplyr::filter(season == seas) %>%
+      dplyr::mutate(sqrt_week = week ** 0.5) %>%
+      dplyr::group_by(player_id, season) %>%
+      dplyr::summarize(
+        dplyr::across(dplyr::all_of(numeric_stat_cols), ~ mean(.x, na.rm = TRUE), .names = "mean_{.col}_l1"),
+        dplyr::across(dplyr::all_of(numeric_stat_cols), ~ weighted.mean(.x, w = sqrt_week, na.rm = TRUE) - mean(.x, na.rm = TRUE), .names = "wtd_mean_{.col}_l1"),
+        dplyr::across(dplyr::all_of(numeric_stat_cols), ~ sd(.x, na.rm = TRUE), .names = "sd_{.col}_l1"),
+        .groups = "keep"
+      )
+    df_sub = df_sub %>%
+      dplyr::left_join(df_sub_prior_season,
+                        by = c('player_id', 'season'))
     df_new = rbind(df_new, df_sub)
   }
   return(df_new)
