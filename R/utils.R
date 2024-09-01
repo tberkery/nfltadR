@@ -93,3 +93,11 @@ average_20th_percentile <- function(x, na.rm = FALSE) {
   return(mean_top_values)
 }
 
+nth_highest <- function(x, n) {
+  sorted_x <- sort(x, decreasing = TRUE, na.last = NA) # Sort the values in descending order
+  if (n <= length(sorted_x)) {
+    return(sorted_x[n])
+  } else {
+    return(NA) # Return NA if n is larger than the number of values
+  }
+}

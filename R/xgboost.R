@@ -81,14 +81,14 @@ xgboost = function(model_name, category_num, position, data, response_variable,
 
   xgb_wf
 
-  set.seed(123)
+  #set.seed(123)
   df_train_folds = rsample::group_vfold_cv(df_train, response_variable, v = num_cv_folds)
 
   df_train_folds
 
   doParallel::registerDoParallel(cores = parallel::detectCores() - 1)
 
-  set.seed(234)
+  #set.seed(234)
   xgb_res = tune::tune_grid(
     xgb_wf,
     resamples = df_train_folds,
