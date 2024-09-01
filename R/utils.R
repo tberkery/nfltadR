@@ -66,3 +66,30 @@ create_model_directory = function(model_name, position, response_variable, categ
     message("Directory already exists: ", dir_path)
   }
 }
+
+average_80th_percentile <- function(x, na.rm = FALSE) {
+  # Compute the 80th percentile
+  threshold <- quantile(x, 0.8, na.rm = na.rm)
+  
+  # Filter the values greater than or equal to the 80th percentile
+  top_values <- x[x >= threshold]
+  
+  # Compute the mean of these values
+  mean_top_values <- mean(top_values, na.rm = na.rm)
+  
+  return(mean_top_values)
+}
+
+average_20th_percentile <- function(x, na.rm = FALSE) {
+  # Compute the 80th percentile
+  threshold <- quantile(x, 0.2, na.rm = na.rm)
+  
+  # Filter the values greater than or equal to the 80th percentile
+  top_values <- x[x <= threshold]
+  
+  # Compute the mean of these values
+  mean_top_values <- mean(top_values, na.rm = na.rm)
+  
+  return(mean_top_values)
+}
+

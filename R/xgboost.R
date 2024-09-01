@@ -65,7 +65,6 @@ xgboost = function(model_name, category_num, position, data, response_variable,
   xgb_grid
 
   formula = as.formula(paste(response_variable, "~", paste(features, collapse = " + ")))
-  print(formula)
 
   recipe = recipes::recipe(formula, data = df_train) %>%
     recipes::step_impute_mean(recipes::all_numeric_predictors()) %>%
@@ -171,8 +170,6 @@ xgboost = function(model_name, category_num, position, data, response_variable,
     dplyr::arrange(desc(proj)) %>%
     dplyr::mutate(nfl_age = nfl_age + 1)
 
-  con_write = connect_write_db()
-  write_data(df_2024_board, "fantasy_football", "draft_board", con_write)
-  DBI::dbDisconnect(con_write)
+  return(df_2024_board)
 
 }

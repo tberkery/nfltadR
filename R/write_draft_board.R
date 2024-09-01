@@ -1,4 +1,4 @@
-run_projections = function(db_name = "fantasy_football") {
+run_projections = function(num_iterations = 15, db_name = "fantasy_football") {
   features_by_position <- list(
     "QB" = c(
       "mean_passing_tds_l1", "mean_passing_tds_l3", "wtd_mean_passing_tds_l1", "wtd_mean_passing_tds_l3", 
@@ -159,31 +159,97 @@ run_projections = function(db_name = "fantasy_football") {
       "wtd_mean_total_fantasy_points_exp_team_pct"
     )
   )
-  
-  for (scoring_system in c("ppg_next_year", "ppg_ppr_next_year")) {
-    for (pos in c("QB", "RB", "WR-TE")) {
-      features = features_by_position[[pos]]
-      if (pos %in% c("QB", "RB", "WR", "TE")) {
-        data = get_data_by_position_and_year(db_name, pos)
-      } else if (pos == "WR-TE") {
-        data_wr = get_data_by_position_and_year(db_name, "WR")
-        data_te = get_data_by_position_and_year(db_name, "TE")
-        common_cols = intersect(colnames(data_wr), colnames(data_te))
-        data_wr = data_wr %>%
-          dplyr::select(dplyr::all_of(common_cols))
-        data_te = data_te %>%
-          dplyr::select(dplyr::all_of(common_cols))
-        data = rbind(data_wr, data_te)
+  projections = NULL
+  for (model_run in 1:num_iterations) {
+    for (scoring_system in c("ppg_next_year", "ppg_ppr_next_year")) {
+      for (pos in c("QB", "RB", "WR-TE")) {
+        features = features_by_position[[pos]]
+        if (pos %in% c("QB", "RB", "WR", "TE")) {
+          data = get_data_by_position_and_year(db_name, pos)
+        } else if (pos == "WR-TE") {
+          data_wr = get_data_by_position_and_year(db_name, "WR")
+          data_te = get_data_by_position_and_year(db_name, "TE")
+          common_cols = intersect(colnames(data_wr), colnames(data_te))
+          data_wr = data_wr %>%
+            dplyr::select(dplyr::all_of(common_cols))
+          data_te = data_te %>%
+            dplyr::select(dplyr::all_of(common_cols))
+          data = rbind(data_wr, data_te)
+        }
+        num_cv_folds = NULL
+        if (pos == "QB") {
+          num_cv_folds = 5
+        } else if (pos == "RB") {
+          num_cv_folds = 5
+        } else {
+          num_cv_folds = 5
+        }
+        projections_sub = xgboost("standard", model_run, pos, data, scoring_system, features, num_cv_folds, 15)
+        projections_sub = projections_sub %>%
+          dplyr::group_by(position, season) %>%
+          dplyr::mutate(rank_pos = dplyr::min_rank(desc(proj))) %>%
+          dplyr::group_by(position, season, nfl_age) %>%
+          dplyr::mutate(rank_nfl_age = dplyr::min_rank(desc(proj))) %>%
+          dplyr::group_by(position, season, team) %>%
+          dplyr::mutate(rank_tm = dplyr::min_rank(desc(proj))) %>%
+          dplyr::ungroup()
+        projections = rbind(projections, projections_sub)
       }
-      num_cv_folds = NULL
-      if (pos == "QB") {
-        num_cv_folds = 5
-      } else if (pos == "RB") {
-        num_cv_folds = 5
-      } else {
-        num_cv_folds = 5
-      }
-      xgboost("standard", 1, pos, data, scoring_system, features, num_cv_folds, 15)
     }
   }
+  
+  player_seasons_with_id = projections %>%
+    dplyr::ungroup() %>%
+    dplyr::distinct(player_id, name, season) 
+  
+  con_write = connect_write_db()
+  write_data(player_seasons_with_id, "fantasy_football", "adjustments", con_write)
+  
+  con_read = connect_read_db()
+  existing_adjustments = DBI::dbGetQuery(con_read, "SELECT * FROM fantasy_football.adjustments") %>%
+    tibble::as_tibble() %>%
+    dplyr::ungroup() %>%
+    dplyr::select(-name)
+  disconnect_read_db(con_read)
+  
+  if ("adjustment" %notin% colnames(existing_adjustments)) {
+    existing_adjustments$adjustment = 0
+  }
+  
+  df_2024_board = projections %>%
+    dplyr::left_join(existing_adjustments, by = c("player_id", "season")) %>%
+    dplyr::mutate(proj = proj * (1 + adjustment)) %>%
+    dplyr::group_by(player_id, season) %>%
+    dplyr::summarize(
+      adjustment = mean(adjustment, na.rm = TRUE),
+      proj = mean(proj, na.rm = TRUE),
+      sd_proj = sd(proj, na.rm = TRUE),
+      min_proj = min(proj, na.rm = TRUE),
+      max_proj = max(proj, na.rm = TRUE),
+      p20_proj = average_80th_percentile(proj, na.rm = TRUE),
+      p80_proj = average_20th_percentile(proj, na.rm = TRUE),
+      rank_pos = mean(rank_pos, na.rm = TRUE),
+      sd_rank_pos = sd(rank_pos, na.rm = TRUE),
+      min_rank_pos = min(rank_pos, na.rm = TRUE),
+      max_rank_pos = max(rank_pos, na.rm = TRUE),
+      p20_rank_pos = average_80th_percentile(rank_pos, na.rm = TRUE),
+      p80_rank_pos = average_20th_percentile(rank_pos, na.rm = TRUE),
+      top_5_prob = sum(rank_pos <= 5, na.rm = TRUE) / dplyr::n(),
+      top_10_prob = sum(rank_pos <= 10, na.rm = TRUE) / dplyr::n(),
+      top_20_prob = sum(rank_pos <= 20, na.rm = TRUE) / dplyr::n(),
+      top_30_prob = sum(rank_pos <= 30, na.rm = TRUE) / dplyr::n(),
+      top_40_prob = sum(rank_pos <= 40, na.rm = TRUE) / dplyr::n(),
+      rank_nfl_age = mean(rank_nfl_age, na.rm = TRUE),
+      min_rank_nfl_age = min(rank_nfl_age, na.rm = TRUE),
+      max_rank_nfl_age = max(rank_nfl_age, na.rm = TRUE),
+      p20_rank_nfl_age = average_80th_percentile(rank_nfl_age, na.rm = TRUE),
+      p80_rank_nfl_age = average_20th_percentile(rank_nfl_age, na.rm = TRUE), 
+      rank_tm = mean(rank_tm, na.rm = TRUE),
+      .groups = 'keep'
+    )
+  df_2024_board %>% 
+    readr::write_csv("board.csv")
+  
+  write_data(df_2024_board, "fantasy_football", "draft_board", con_write)
+  DBI::dbDisconnect(con_write)
 }
