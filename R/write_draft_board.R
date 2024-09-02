@@ -1,4 +1,4 @@
-run_projections = function(num_iterations = 25, db_name = "fantasy_football") {
+run_projections = function(num_iterations = 50, db_name = "fantasy_football") {
   features_by_position <- list(
     "QB" = c(
       "mean_passing_tds_l1", "mean_passing_tds_l3", "wtd_mean_passing_tds_l1", "wtd_mean_passing_tds_l3", 
@@ -195,10 +195,15 @@ run_projections = function(num_iterations = 25, db_name = "fantasy_football") {
           dplyr::mutate(rank_tm = dplyr::min_rank(desc(proj))) %>%
           dplyr::ungroup() %>%
           dplyr::mutate(model_run = model_run)
+        projections_sub %>%
+          saveRDS(glue::glue("projections_{model_run}_{pos}_{scoring_system}.rds"))
         projections = rbind(projections, projections_sub)
       }
     }
   }
+  
+  projections %>%
+    saveRDS("projections.rds")
   
   player_seasons_with_id = projections %>%
     dplyr::ungroup() %>%
@@ -228,7 +233,11 @@ run_projections = function(num_iterations = 25, db_name = "fantasy_football") {
     )) %>%
     tidyr::drop_na(position) %>%
     dplyr::left_join(existing_adjustments, by = c("player_id", "season", "scoring_system")) %>%
-    dplyr::mutate(proj = proj * (1 + adjustment)) %>%
+    dplyr::mutate(proj = dplyr::case_when(
+      is.na(adjustment) ~ proj,
+      TRUE ~ proj * (1 + adjustment)
+      )
+    ) %>%
     dplyr::group_by(player_id, name, season, position, team, headshot_url, age, nfl_age, scoring_system) %>%
     dplyr::summarize(
       count = dplyr::n(),
@@ -270,7 +279,10 @@ run_projections = function(num_iterations = 25, db_name = "fantasy_football") {
                       num_rbs_per_team = 4.5,
                       num_wrs_per_team = 5,
                       num_tes_per_team = 1.5)
+  
+  # Three specific board designs to match format of leagues this developer is in.
   brd_1 %>%
+    format_csv_board() %>%
     readr::write_csv("board_1.csv")
   brd_2 = compute_par(df_2024_board, 
                       ss = "ppg_next_year", 
@@ -280,15 +292,17 @@ run_projections = function(num_iterations = 25, db_name = "fantasy_football") {
                       num_wrs_per_team = 4.25,
                       num_tes_per_team = 1.25)
   brd_2 %>%
+    format_csv_board() %>%
     readr::write_csv("board_2.csv")
   brd_3 = compute_par(df_2024_board, 
-                      ss = "ppg_next_year", 
+                      ss = "ppg_ppr_next_year", 
                       num_teams = 10, 
                       num_qbs_per_team = 3,
                       num_rbs_per_team = 3.25,
                       num_wrs_per_team = 4.5,
                       num_tes_per_team = 1.25)
   brd_3 %>%
+    format_csv_board() %>%
     readr::write_csv("board_3.csv")
   return(df_2024_board)
 }
@@ -306,10 +320,34 @@ compute_par = function(df, ss, num_teams, num_qbs_per_team, num_rbs_per_team, nu
     dplyr::mutate(dplyr::across(dplyr::contains("proj") & !dplyr::contains("sd_"), ~. - pos_threshold)) %>%
     dplyr::ungroup() %>%
     dplyr::arrange(desc(exp_proj)) %>%
-    dplyr::mutate(dplyr::across(where(is.numeric), ~round(., digits = 2)))
-  table_name = glue::glue("draft_board_", scoring_system, "SS_", num_teams, "TM_", num_qbs_per_team, "QB_", num_rbs_per_team, "RB_", num_wrs_per_team, "WR_", num_tes_per_team, "TE")
+    dplyr::mutate(dplyr::across(where(is.numeric), ~round(., digits = 2))) %>%
+    dplyr::mutate(fpts_proj = exp_proj + pos_threshold)
+  table_name = glue::glue("draft_board_", ss, "_SS_", num_teams, "TM_", num_qbs_per_team, "QB_", num_rbs_per_team, "RB_", num_wrs_per_team, "WR_", num_tes_per_team, "TE")
   con_write = connect_write_db()
   write_data(df, "fantasy_football", table_name, con_write)
   DBI::dbDisconnect(con_write)
   return(df)
+}
+
+format_csv_board = function(df) {
+  df %>%
+    dplyr::ungroup() %>%
+    dplyr::rename(xPAR = exp_proj,
+                  pos_rank = exp_rank_pos,
+                  sd_xPAR = sd_proj,
+                  p20_xPAR = p20_proj,
+                  p80_xPAR = p80_proj,
+                  fpts = fpts_proj,
+                  top_5 = top_5_prob,
+                  top_10 = top_10_prob,
+                  top_20 = top_20_prob,
+                  top_30 = top_30_prob,
+                  top_40 = top_40_prob,
+                  rank_nfl_age = exp_rank_nfl_age,
+                  rank_tm = exp_rank_tm,
+                  min_xPAR = min_proj,
+                  max_xPAR = max_proj) %>%
+    dplyr::arrange(desc(xPAR)) %>%
+    dplyr::mutate(ovr_rank = dplyr::row_number()) %>%
+    dplyr::select(name, position, team, age, nfl_age, xPAR, ovr_rank, pos_rank, adjustment, p20_xPAR, p80_xPAR, sd_xPAR, p20_rank_pos, p80_rank_pos, top_5, top_10, top_20, top_30, top_40, pos_threshold, rank_nfl_age, min_xPAR, max_xPAR)
 }
